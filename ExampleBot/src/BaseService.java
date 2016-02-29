@@ -171,6 +171,9 @@ public class BaseService implements GameEntity {
 			}
 			builders.add(builder);
 		}
+		for (Base base : bases) {
+			base.onEntityCreate(unit);
+		}
 	}
 
 	@Override

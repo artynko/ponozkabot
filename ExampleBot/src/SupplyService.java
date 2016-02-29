@@ -39,13 +39,14 @@ public class SupplyService implements GameEntity {
 				builder = null;
 			}
 		} else {
-			if (player.supplyTotal() - player.supplyUsed() <= getSupplyMargin(player)) {
+			if (player.supplyTotal() < 400 && player.supplyTotal() - player.supplyUsed() <= getSupplyMargin(player)) {
 				builder = baseService.getMain().getFreeBuilder();
 				if (builder != null) {
 					do { // find build location and store it
 						buildLocation = getBuildPosition(game, baseService.getStartPosition().getTilePosition());
 					} while (!buildLocation.isValid());
 					builder.build(UnitType.Terran_Supply_Depot, buildLocation);
+					baseService.getMain().increaseBuildings(UnitType.Terran_Supply_Depot);
 				}
 			}
 		}

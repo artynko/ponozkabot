@@ -14,6 +14,8 @@ import bwta.BWTA;
 import bwta.Region;
 
 public class BaseBuildingService implements GameEntity {
+	// a threshold for base to be still considered as viable build location (area / buildings)
+	private static final int BASE_BUILDING_THRESHOLD = 40000;
 	private EconomyService economyService;
 	private BaseService baseService;
 	private List<UnitEntity> buildings = new ArrayList<>();
@@ -38,8 +40,8 @@ public class BaseBuildingService implements GameEntity {
 			buildOrder.add(new BuildOrderEntry(-1, UnitType.Terran_Control_Tower, 1, false));
 			buildOrder.add(new BuildOrderEntry(-1, UnitType.Terran_Science_Facility, 1, false));
 			buildOrder.add(new BuildOrderEntry(80, UnitType.Terran_Engineering_Bay, 2, false));
-			buildOrder.add(new BuildOrderEntry(80, UnitType.Terran_Barracks, -6, false)); 
-			buildOrder.add(new BuildOrderEntry(110, UnitType.Terran_Barracks, -4, false)); 
+			buildOrder.add(new BuildOrderEntry(80, UnitType.Terran_Barracks, -6, false));
+			buildOrder.add(new BuildOrderEntry(110, UnitType.Terran_Barracks, -4, false));
 		}
 		if (economyService.getSupply() >= 10 && game.getFrameCount() % 20 == 5) { // don't build any base until 12 supply
 			// figure out what I have currently
@@ -73,8 +75,22 @@ public class BaseBuildingService implements GameEntity {
 							}
 						} else {
 							System.out.println("type: " + entry.type + " counts: " + counts.get(entry.type).intValue() + " count: " + count);
-							TilePosition tp = getBuildPosition(entry.type, game);
-							Builder b = baseService.getMain().getFreeBuilder();
+							Base baseToBuild = null;
+							double bestRatio = 0;
+							for (Base b : baseService.getBases()) {
+								if (b.isCompleted() && b.getBuilderSize() > 10 && 
+										b.getBuildingRatio() > bestRatio) {
+									baseToBuild = b;
+									bestRatio = b.getBuildingRatio();
+								}
+							}
+							if (baseToBuild == null) {
+								baseToBuild = baseService.getMain();
+							}
+
+							TilePosition tp = getBuildPosition(baseToBuild, entry.type, game, player);
+							Builder b = baseToBuild.getFreeBuilder();
+							baseToBuild.increaseBuildings(entry.type);
 							b.build(entry.type, tp);
 							orderedBuildings.put(b, entry.type);
 						}
@@ -113,17 +129,17 @@ public class BaseBuildingService implements GameEntity {
 		return false;
 	}
 
-	private TilePosition getBuildPosition(UnitType type, Game game) {
+	private TilePosition getBuildPosition(Base base, UnitType type, Game game, Player player) {
 		TilePosition pos = null;
-		if (type == UnitType.Terran_Academy || type == UnitType.Terran_Engineering_Bay || type == UnitType.Terran_Factory || type == UnitType.Terran_Starport
+		if (player.allUnitCount(type) > 7 || type == UnitType.Terran_Academy || type == UnitType.Terran_Engineering_Bay || type == UnitType.Terran_Factory || type == UnitType.Terran_Starport
 				|| type == UnitType.Terran_Science_Facility) {
-			pos = getBuildPosition(type, game, baseService.getStartPosition().getTilePosition());
+			pos = getBuildPosition(type, game, base.getBaseLocation().getTilePosition());
 		} else {
-			pos = MathUtil.moveToLocation(baseService.getStartPosition().getPosition(), baseService.getStartPosition().getRegion().getChokepoints().get(0).getCenter(),
+			pos = MathUtil.moveToLocation(base.getBaseLocation().getPosition(), base.getBaseLocation().getRegion().getChokepoints().get(0).getCenter(),
 					TilePosition.SIZE_IN_PIXELS * 8).toTilePosition();
 		}
 		if (!pos.isValid()) {
-			return getBuildPosition(type, game);
+			return getBuildPosition(base, type, game, player);
 		}
 		return pos;
 	}
@@ -160,9 +176,10 @@ public class BaseBuildingService implements GameEntity {
 		game.drawCircleMap(tp.toPosition(), 5, Color.White, true);
 		return tp;
 	}
-	
+
 	/**
 	 * Will find the first occurence of a given unit type and change it
+	 * 
 	 * @param type
 	 * @param supply
 	 * @param count

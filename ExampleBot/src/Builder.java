@@ -74,7 +74,7 @@ public class Builder extends AbstractUnitEntity {
 						System.out.println("Spread:" + currentSpread + " type: " + typeToBuild + " position-x: " + buildLocation.toPosition().getX() + " y: "
 								+ newBuildLocation.toPosition().getY());
 						currentSpread++;
-						if (currentSpread > 200)
+						if (currentSpread > 500)
 							currentSpread = 0;
 						return;
 					} else {

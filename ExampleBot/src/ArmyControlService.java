@@ -108,7 +108,7 @@ public class ArmyControlService implements GameEntity, EnemyUnitDiscoveredListen
 
 	private boolean hasEnemyUnits(Position position, Game game) {
 		for (Unit unit : game.getUnitsOnTile(position.toTilePosition())) {
-			if (unit.getPlayer().equals(game.enemy())) {
+			if (unit.exists() && unit.getPlayer().equals(game.enemy())) {
 				return true;
 			}
 		}

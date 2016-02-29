@@ -18,6 +18,7 @@ import bwta.Chokepoint;
  */
 public class Base implements GameEntity {
 
+	private static final int AREA_DIVIDER = 4;
 	private BaseLocation baseLocation;
 	private List<Builder> builders = new ArrayList<>();
 	private List<Builder> inRefinery = new ArrayList<>();
@@ -26,6 +27,8 @@ public class Base implements GameEntity {
 	private Unit refineryUnit;
 	private BaseService baseService;
 	private Builder rampCleaner = null;
+	private int buildings = 0;
+	private double buildingRatio;
 
 	public Base(BaseLocation baseLocation, Unit commandCenterUnit, EconomyService economyService, BaseService baseService) {
 		super();
@@ -89,6 +92,11 @@ public class Base implements GameEntity {
 
 	@Override
 	public void onFrame(Game game, Player player) {
+		double area = baseLocation.getRegion().getPolygon().getArea() / AREA_DIVIDER;
+		buildingRatio = area - buildings;
+		game.drawTextMap(baseLocation.getPosition(), "building: " + buildings + "\nregion area: " + area + "\n" + buildingRatio);
+		
+		
 		if (economyService.availableMinerals() >= 50 && !cc.isTraining() && notSaturated() && baseService.getBuilders().size() < baseService.getMaxBuilders()) {
 			cc.train(UnitType.Terran_SCV);
 			game.drawCircleMap(cc.getPosition(), 8, Color.Green);
@@ -135,12 +143,29 @@ public class Base implements GameEntity {
 
 	@Override
 	public void onEntityDestroyed(UnitEntity unit) {
+		if (unit.getUnit().getType().isBuilding() && baseLocation.getRegion().getPolygon().isInside(unit.getUnit().getPosition())) {
+			buildings--;
+		}
 		builders.remove(unit);
 		inRefinery.remove(unit);
 	}
 	
 	public boolean beingConstructed() {
 		return !cc.isCompleted();
+	}
+
+	public double getBuildingRatio() {
+		return buildingRatio;
+	}
+	
+	public void increaseBuildings(UnitType type) {
+		double area = baseLocation.getRegion().getPolygon().getArea() / AREA_DIVIDER;
+		buildings += (type.width() * type.height());
+		buildingRatio = area - buildings;
+	}
+	
+	public boolean isCompleted() {
+		return cc.isCompleted();
 	}
 
 }
