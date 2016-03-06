@@ -25,15 +25,18 @@ public class ResearchService implements GameEntity {
 	public void onFrame(Game game, Player player) {
 		if (researchOrder.isEmpty()) {
 			researchOrder.add(new ResearchOrder(35, TechType.Stim_Packs, UpgradeType.None));
-			researchOrder.add(new ResearchOrder(46, TechType.None, UpgradeType.U_238_Shells));
-			researchOrder.add(new ResearchOrder(40, TechType.None, UpgradeType.Terran_Infantry_Weapons));
-			researchOrder.add(new ResearchOrder(45, TechType.None, UpgradeType.Terran_Infantry_Armor));
+			researchOrder.add(new ResearchOrder(60, TechType.None, UpgradeType.U_238_Shells));
+			researchOrder.add(new ResearchOrder(50, TechType.None, UpgradeType.Terran_Infantry_Weapons));
+			researchOrder.add(new ResearchOrder(55, TechType.None, UpgradeType.Terran_Infantry_Armor));
+			researchOrder.add(new ResearchOrder(40, TechType.Tank_Siege_Mode, UpgradeType.None));
 		}
 		if (game.getFrameCount() % 40 == 0) {
 			for (ResearchOrder r : researchOrder) {
 				if (economyService.getSupply() > r.supply) {
 					if (r.techType != TechType.None) {
 						if (techType == null && game.canResearch(r.techType) && !player.isResearching(r.techType) && !player.hasResearched(r.techType)) {
+							economyService.reserveGas(r.techType.gasPrice());
+							economyService.reserveMinerales(r.techType.mineralPrice());
 							techType = r.techType;
 							System.out.println("tech type picked: " + techType);
 						}
@@ -51,12 +54,13 @@ public class ResearchService implements GameEntity {
 
 		if (techType != null) {
 			if (!(player.isResearching(techType) || player.hasResearched(techType))) {
-				if (techType.gasPrice() <= economyService.availableGas() && techType.mineralPrice() <= economyService.availableMinerals()) {
-					System.out.println(buildings);
+				if (techType.gasPrice() <= player.gas() && techType.mineralPrice() <= economyService.getMinerals()) {
 					for (UnitEntity entity : buildings) {
 						if (entity.getUnit().canResearch(techType)) {
 							System.out.println("Trying to research: " + techType);
 							entity.getUnit().research(techType);
+							economyService.freeGas(techType.gasPrice());
+							economyService.freeMinerals(techType.mineralPrice());
 						}
 					}
 				}
@@ -72,7 +76,6 @@ public class ResearchService implements GameEntity {
 			int targetUpgradeLevel = task.targetUpgradeLevel;
 			if (!(player.isUpgrading(upgradeType) || player.getUpgradeLevel(upgradeType) > targetUpgradeLevel)) {
 				if (upgradeType.gasPrice() <= economyService.availableGas() && upgradeType.mineralPrice() <= economyService.availableMinerals()) {
-					System.out.println(buildings);
 					for (UnitEntity entity : buildings) {
 						if (entity.getUnit().canUpgrade(upgradeType) && !entity.getUnit().isUpgrading()) {
 							System.out.println("Trying to upgrade: " + upgradeType);
@@ -100,6 +103,9 @@ public class ResearchService implements GameEntity {
 			buildings.add(entity);
 		}
 		if (entity.getUnit().getType() == UnitType.Terran_Engineering_Bay) {
+			buildings.add(entity);
+		}
+		if (entity.getUnit().getType() == UnitType.Terran_Machine_Shop) {
 			buildings.add(entity);
 		}
 

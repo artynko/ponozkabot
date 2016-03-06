@@ -1,4 +1,5 @@
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
@@ -31,6 +32,7 @@ public class TestBot1 extends DefaultBWListener {
 	private ResearchService researchService;
 	private CounterService counterService;
 	private SixPoolDefenseService sixPoolDefenseService;
+	private List<UnitEntity> buildingsWithoutWorkers = Collections.synchronizedList(new ArrayList<UnitEntity>());
 
 	private SupplyService supplyService;
 
@@ -69,7 +71,7 @@ public class TestBot1 extends DefaultBWListener {
 
 	@Override
 	public void onUnitCreate(Unit unit) {
-		System.out.println("Created:" + unit.getType());
+		//		System.out.println("Created:" + unit.getType());
 		if (unit.getPlayer() != self)
 			return;
 		UnitEntity unitEntity = null;
@@ -83,9 +85,27 @@ public class TestBot1 extends DefaultBWListener {
 			unitEntity = new Firebat(unit);
 		} else if (unit.getType() == UnitType.Terran_Science_Vessel) {
 			unitEntity = new ScienceVessel(unit);
+		} else if (unit.getType() == UnitType.Terran_Goliath) {
+			unitEntity = new Goliath(unit);
+		} else if (unit.getType() == UnitType.Terran_Siege_Tank_Tank_Mode) {
+			unitEntity = new SiegeTank(unit);
 		} else {
 			unitEntity = new BaseUnitEntity(unit);
 		}
+		if (unitEntity.getUnit().getType().isBuilding() && !unitEntity.getUnit().isCompleted() && unitEntity.getUnit().getBuildUnit() == null) {
+			buildingsWithoutWorkers.add(unitEntity);
+			System.out.println("CORE: found building without build unit addin to queue, size: " + buildingsWithoutWorkers.size());
+		} else {
+			doOnCreateEntity(unitEntity);
+		}
+	}
+
+	/**
+	 * Addsunit entity into units and calls all on create handlers
+	 * 
+	 * @param unitEntity
+	 */
+	private void doOnCreateEntity(UnitEntity unitEntity) {
 		if (unitEntity != null) {
 			units.add(unitEntity);
 			for (GameEntity entity : services) {
@@ -103,7 +123,7 @@ public class TestBot1 extends DefaultBWListener {
 		self = game.self();
 		enemy = game.enemy();
 		game.enableFlag(1);
-		game.setLocalSpeed(30);
+		game.setLocalSpeed(0);
 
 		// Use BWTA to analyze map
 		// This may take a few minutes if the map is processed first time!
@@ -118,7 +138,6 @@ public class TestBot1 extends DefaultBWListener {
 			for (Position position : baseLocation.getRegion().getPolygon().getPoints()) {
 				System.out.print(position + ", ");
 			}
-			System.out.println();
 		}
 
 		for (Unit myUnit : self.getUnits()) {
@@ -133,6 +152,21 @@ public class TestBot1 extends DefaultBWListener {
 
 	@Override
 	public void onFrame() {
+		if (game.getFrameCount() > 9000)
+			game.setLocalSpeed(10);
+
+		Iterator<UnitEntity> itt = buildingsWithoutWorkers.iterator();
+		while (itt.hasNext()) {
+			UnitEntity entity = itt.next();
+			if (entity.getUnit().getBuildUnit() != null) {
+				System.out.println("CORE: building now has worker calling handlers: " + entity.getUnit().getType());
+				doOnCreateEntity(entity);
+				itt.remove();
+			}
+		}
+
+		// figure out 
+
 		game.drawTextScreen(10, 10, "Playing as " + self.getName() + " - " + self.getRace() + " - " + game.getAPM() + " - " + game.getFrameCount());
 		for (GameEntity service : services) {
 			service.onFrame(game, self);
@@ -143,21 +177,20 @@ public class TestBot1 extends DefaultBWListener {
 
 		// game.setTextSize(10);
 
-
-//		for (Unit myUnit : self.getUnits()) {
-//			if (someUnit == null && myUnit.exists())
-//				someUnit = myUnit;
-//			// if there's enough minerals, train an SCV
-//		}
-//		// iterate through my units
-//		bwta.Region r = BWTA.getRegion(someUnit.getPosition());
-//		for (int n = 0; n < r.getPolygon().getPoints().size() - 1; n++) {
-//			game.drawLineMap(r.getPolygon().getPoints().get(n).getPoint(), r.getPolygon().getPoints().get(n + 1).getPoint(), Color.White);
-//			for (Chokepoint ch : r.getChokepoints()) {
-//				game.drawCircleMap(ch.getCenter(), (int) ch.getWidth(), Color.Red);
-//
-//			}
-//		}
+		//		for (Unit myUnit : self.getUnits()) {
+		//			if (someUnit == null && myUnit.exists())
+		//				someUnit = myUnit;
+		//			// if there's enough minerals, train an SCV
+		//		}
+		//		// iterate through my units
+		//		bwta.Region r = BWTA.getRegion(someUnit.getPosition());
+		//		for (int n = 0; n < r.getPolygon().getPoints().size() - 1; n++) {
+		//			game.drawLineMap(r.getPolygon().getPoints().get(n).getPoint(), r.getPolygon().getPoints().get(n + 1).getPoint(), Color.White);
+		//			for (Chokepoint ch : r.getChokepoints()) {
+		//				game.drawCircleMap(ch.getCenter(), (int) ch.getWidth(), Color.Red);
+		//
+		//			}
+		//		}
 
 		// draw my units on screen
 	}
@@ -182,8 +215,7 @@ public class TestBot1 extends DefaultBWListener {
 			}
 			return;
 		}
-		
-		
+
 		// my unit destroyed
 		Iterator<UnitEntity> itt = units.iterator();
 
@@ -219,18 +251,18 @@ public class TestBot1 extends DefaultBWListener {
 				}
 			}
 		}
-//		System.out.println("Discovered:" + unit.getType());
+		//		System.out.println("Discovered:" + unit.getType());
 	}
 
 	@Override
 	public void onUnitHide(Unit arg0) {
-//		System.out.println("Hidden:" + arg0.getType());
+		//		System.out.println("Hidden:" + arg0.getType());
 		super.onUnitHide(arg0);
 	}
 
 	@Override
 	public void onUnitShow(Unit arg0) {
-//		System.out.println("Shown:" + arg0.getType());
+		//		System.out.println("Shown:" + arg0.getType());
 		super.onUnitShow(arg0);
 	}
 

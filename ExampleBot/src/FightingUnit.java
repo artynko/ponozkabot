@@ -1,5 +1,6 @@
 import bwapi.Game;
 import bwapi.Player;
+import bwapi.Position;
 import bwapi.TilePosition;
 import bwapi.Unit;
 import bwapi.UnitCommandType;
@@ -26,8 +27,20 @@ abstract public class FightingUnit extends AbstractUnitEntity implements EntityW
 			return;
 		}
 		if (game.getFrameCount() % 20 == 0) {
-			if (unit.getPosition().getDistance(squad.getMedianPosition()) > TilePosition.SIZE_IN_PIXELS * DISTANCE_TO_MEDIAN) {
-				if (unit.getPosition().getDistance(squad.getAttackPosition()) < squad.getMedianPosition().getDistance(squad.getAttackPosition())) {
+			Position groupPosition = squad.getMedianPosition();
+			if (squad.getUnits().size() < 8) {
+				groupPosition = squad.getLastPosition();
+			}
+			if (squad.getBehaviour() == Squad.Behaviour.DEFENSE) {
+				groupPosition = squad.getAttackPosition();
+			}
+			double distaneToGroup = unit.getPosition().getDistance(groupPosition);
+			if (distaneToGroup > TilePosition.SIZE_IN_PIXELS * DISTANCE_TO_MEDIAN) {
+				if (distaneToGroup > TilePosition.SIZE_IN_PIXELS * 30) {
+					unit.move(groupPosition);
+					return;
+				}
+				if (unit.getPosition().getDistance(squad.getAttackPosition()) < groupPosition.getDistance(squad.getAttackPosition())) {
 					if (unit.getLastCommand().getUnitCommandType() != UnitCommandType.Stop) {
 						unit.stop();
 					}
@@ -35,7 +48,7 @@ abstract public class FightingUnit extends AbstractUnitEntity implements EntityW
 					unit.attack(squad.getAttackPosition());
 				}
 			} else {
-				if (unit.isIdle() && squad.getAttackPosition().getPoint().getDistance(unit.getPosition()) > TilePosition.SIZE_IN_PIXELS *  DISTANCE_TO_MEDIAN) {
+				if (unit.isIdle() && squad.getAttackPosition().getPoint().getDistance(unit.getPosition()) > TilePosition.SIZE_IN_PIXELS * 3) {
 					//						&& unit.getLastCommand().getUnitCommandType() != UnitCommandType.Attack_Move) {
 					unit.attack(squad.getAttackPosition());
 				}

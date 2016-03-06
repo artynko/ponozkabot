@@ -9,7 +9,6 @@ import bwapi.Game;
 import bwapi.Player;
 import bwapi.Position;
 import bwapi.Unit;
-import bwapi.UnitType;
 import bwta.BWTA;
 import bwta.BaseLocation;
 import bwta.Chokepoint;
@@ -29,9 +28,7 @@ public class ArmyControlService implements GameEntity, EnemyUnitDiscoveredListen
 	public ArmyControlService(BaseService baseService, EconomyService economyService) {
 		this.baseService = baseService;
 		this.economyService = economyService;
-		Squad squad = new Squad(squadNum++, this);
-		squads.add(squad);
-		currentTrainSquad = squad;
+		createNewTrainSquad();
 	}
 
 	@Override
@@ -61,24 +58,25 @@ public class ArmyControlService implements GameEntity, EnemyUnitDiscoveredListen
 			EntityWithSquad entity = itt.next();
 			if (entity.getUnit().isCompleted()) {
 				army.add(entity);
-				if (entity.getUnit().getType() == UnitType.Terran_Science_Vessel) {
-					if (squads.size() == 1) {
-						entity.assigntToSquad(currentTrainSquad);
-					} else {
-						entity.assigntToSquad(squads.get(squads.size() - 2));
-					}
-				} else {
+				//				if (entity.getUnit().getType() == UnitType.Terran_Science_Vessel) {
+				if (squads.size() == 1) {
 					entity.assigntToSquad(currentTrainSquad);
+				} else {
+					Squad lastAttacking = squads.get(squads.size() - 2);
+					if (lastAttacking.isWinning() && lastAttacking.getUnits().size() < getSquadSize() + 5) {
+						entity.assigntToSquad(lastAttacking);
+					} else {
+						entity.assigntToSquad(currentTrainSquad);
+					}
 				}
-				itt.remove(); // move entity to somewhere
+				itt.remove(); 
 			}
 		}
 		if (currentTrainSquad.getUnits().size() > getSquadSize()) {
-			Position attackPos = getAttackPosition();
+			Position attackPos = getAttackPosition(game);
 			currentTrainSquad.setAttackPosition(attackPos);
-			Squad squad = new Squad(squadNum++, this);
-			squads.add(squad);
-			currentTrainSquad = squad;
+			currentTrainSquad.setBehaviour(Squad.Behaviour.ATTACK);
+			createNewTrainSquad();
 		}
 
 		for (Squad squad : squads) {
@@ -86,7 +84,7 @@ public class ArmyControlService implements GameEntity, EnemyUnitDiscoveredListen
 			// figure out if squad is idle and is nears its objective
 			if (squad != currentTrainSquad) {
 				if (squad.isIdle() || (game.isVisible(squad.getAttackPosition().toTilePosition()) && !hasEnemyUnits(squad.getAttackPosition(), game))) {
-					squad.setAttackPosition(getAttackPosition());
+					squad.setAttackPosition(getAttackPosition(game));
 				}
 			}
 		}
@@ -96,28 +94,37 @@ public class ArmyControlService implements GameEntity, EnemyUnitDiscoveredListen
 		}
 	}
 
+	private void createNewTrainSquad() {
+		Squad squad = new Squad(squadNum++, this);
+		squads.add(squad);
+		currentTrainSquad = squad;
+	}
+
 	private int getSquadSize() {
 		if (economyService.getSupply() < 60) {
 			return 16;
 		} else if (economyService.getSupply() < 90) {
-			return 24;
+			return 20;
 		} else {
-			return 36;
+			return 28;
 		}
 	}
 
 	private boolean hasEnemyUnits(Position position, Game game) {
 		for (Unit unit : game.getUnitsOnTile(position.toTilePosition())) {
-			if (unit.exists() && unit.getPlayer().equals(game.enemy())) {
+			if (unit.exists() && unit.isVisible() && unit.getPlayer().equals(game.enemy())) {
 				return true;
 			}
 		}
 		return false;
 	}
 
-	private Position getAttackPosition() {
+	private Position getAttackPosition(Game game) {
 		if (enemyUnits.size() > 0) {
 			UnitAndPosition unit = (UnitAndPosition) enemyUnits.toArray()[enemyUnits.size() - 1];
+			if (game.isVisible(unit.getPosition().toTilePosition()) && !unit.unit.exists()) {
+				enemyUnits.remove(unit); // next frame will chose something else
+			}
 			return unit.getPosition();
 		}
 		return getEnemyBasePosition();
@@ -200,6 +207,10 @@ public class ArmyControlService implements GameEntity, EnemyUnitDiscoveredListen
 			return unit.hashCode();
 		}
 
+	}
+
+	public Squad getCurrentTrainSquad() {
+		return currentTrainSquad;
 	}
 
 }

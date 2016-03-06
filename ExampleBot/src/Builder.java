@@ -49,21 +49,25 @@ public class Builder extends AbstractUnitEntity {
 		if (typeToBuild != null) {
 			game.drawLineMap(unit.getPosition(), buildLocation.getPoint().toPosition(), Color.White);
 			if (building != null) {
-				unit.rightClick(building);
-				game.drawTextScreen(100, 160, "Building created: " + typeToBuild);
-				if (building.isCompleted()) { // this means it finished
-												// constructing
-					System.out.println("Building completed: " + typeToBuild);
-					if (building.getType() != UnitType.Terran_Refinery)
-						setReserved(false);
-					building = null;
-					typeToBuild = null;
-					currentSpread = 1;
-					return;
-				}
-			}
-			if (unit.isConstructing())
+				game.drawTextScreen(300, 60, "Building created: " + typeToBuild);
+				//				if (building.isCompleted() || !unit.isConstructing()) { // this means it finished
+				// constructing
+				System.out.println("BUILDER: Completed: " + typeToBuild);
+				boolean removeReserved = true;
+				if (building.getType() == UnitType.Terran_Refinery)
+					removeReserved = false;
+				building = null;
+				typeToBuild = null;
+				currentSpread = 1;
+				if (removeReserved)
+					setReserved(false);
 				return;
+				//				}
+			}
+			if (unit.isConstructing()) {
+				building = unit.getBuildUnit();
+				return;
+			}
 			if (typeToBuild != UnitType.Terran_Command_Center) { // for command centers they just must be placed on the correct spot
 				if (game.canBuildHere(buildLocation, typeToBuild)) {
 					drawBox(game, buildLocation, typeToBuild.width(), typeToBuild.height());
@@ -84,16 +88,16 @@ public class Builder extends AbstractUnitEntity {
 					}
 				}
 			}
+			// if he is not constructing yet give the construct order
+			if (!unit.isConstructing() && economyService.getMinerals() >= typeToBuild.mineralPrice()) {
+				unit.build(typeToBuild, buildLocation);
+			}
 			// send him to build position
-			if (economyService.getMinerals() >= typeToBuild.mineralPrice() - 20 && !unit.isConstructing()
+			if (economyService.getMinerals() >= typeToBuild.mineralPrice() - (typeToBuild.mineralPrice() / 4) && !unit.isConstructing()
 					&& buildLocation.toPosition().getDistance(unit.getPosition()) > -(TilePosition.SIZE_IN_PIXELS * 3) + 16) {
 				Position dest = MathUtil.moveToLocation(unit.getPosition(), buildLocation.toPosition(), -(TilePosition.SIZE_IN_PIXELS * 3));
 				game.drawCircleMap(dest, 5, Color.Yellow);
 				unit.move(dest);
-			}
-			// if he is not constructing yet give the construct order
-			if (!unit.isConstructing() && economyService.getMinerals() >= typeToBuild.mineralPrice()) {
-				unit.build(typeToBuild, buildLocation);
 			}
 		}
 	}
@@ -110,6 +114,7 @@ public class Builder extends AbstractUnitEntity {
 	 * @param minerals
 	 */
 	public void build(UnitType unitType, TilePosition position) {
+		building = null;
 		typeToBuild = unitType;
 		buildLocation = position;
 		economyService.reserveMinerales(unitType.mineralPrice());
@@ -128,7 +133,9 @@ public class Builder extends AbstractUnitEntity {
 	@Override
 	public void onEntityCreate(UnitEntity entity) {
 		Unit createdUnit = entity.getUnit();
-		if (createdUnit.getType() == typeToBuild && unit == createdUnit.getBuildUnit()) {
+		if (createdUnit.getType().isBuilding() && (unit.equals(createdUnit.getBuildUnit()))) {
+//		if (createdUnit.getType().equals(typeToBuild)) {
+			System.out.println("BUILDER: Created " + createdUnit.getType());
 			building = createdUnit;
 			economyService.freeMinerals(typeToBuild.mineralPrice());
 		}

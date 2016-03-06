@@ -9,6 +9,7 @@ import bwapi.UnitType;
 
 public class CounterService implements GameEntity, EnemyUnitDestroyedListener, EnemyUnitDiscoveredListener {
 
+	private static final int RACE_ADJUSTMENT_SUPPLY = 50;
 	private MacroService macroService;
 	private Race enemyRace = null;
 	private Set<Unit> zealots = new HashSet<>();
@@ -48,6 +49,24 @@ public class CounterService implements GameEntity, EnemyUnitDestroyedListener, E
 		System.out.println("handling race: " + race);
 		if (enemyRace == Race.Protoss) {
 			macroService.alterBuild(UnitType.Terran_Firebat, 1);
+			baseBuildingService.addBuild(UnitType.Terran_Armory, RACE_ADJUSTMENT_SUPPLY, 1);
+			baseBuildingService.addBuild(UnitType.Terran_Factory, RACE_ADJUSTMENT_SUPPLY, 4);
+			baseBuildingService.addBuild(UnitType.Factories, 120, -7);
+			baseBuildingService.addBuild(UnitType.Terran_Machine_Shop, 120, 4);
+			macroService.alterBuild(UnitType.Terran_Goliath, 4);
+//			macroService.alterBuild(UnitType.Terran_Marine, 1);
+		}
+		if (enemyRace == Race.Terran) {
+			baseBuildingService.addBuild(UnitType.Terran_Armory, RACE_ADJUSTMENT_SUPPLY, 1);
+			baseBuildingService.addBuild(UnitType.Terran_Factory, RACE_ADJUSTMENT_SUPPLY, 4);
+			baseBuildingService.addBuild(UnitType.Terran_Factory, 120, -7);
+			macroService.alterBuild(UnitType.Terran_Goliath, 4);
+//			macroService.alterBuild(UnitType.Terran_Marine, 1);
+		}
+		if (enemyRace == Race.Zerg) {
+			baseBuildingService.addBuild(UnitType.Terran_Barracks, RACE_ADJUSTMENT_SUPPLY, 4);
+			baseBuildingService.addBuild(UnitType.Terran_Barracks, 120, -7);
+			baseBuildingService.addBuild(UnitType.Terran_Engineering_Bay, 80, 2);
 		}
 	}
 

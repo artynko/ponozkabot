@@ -31,7 +31,7 @@ public class SupplyService implements GameEntity {
 			return;
 		}
 		if (builder != null) {
-			game.drawTextScreen(100, 100, "Reserving minerals for supply depot");
+			//			game.drawTextScreen(100, 100, "Reserving minerals for supply depot");
 			game.drawCircleMap(builder.getUnit().getPosition(), 5, Color.Cyan);
 			drawBox(game, baseService.getStartPosition().getTilePosition(), 4, 3);
 			if (depot != null && depot.isCompleted()) {
@@ -40,13 +40,25 @@ public class SupplyService implements GameEntity {
 			}
 		} else {
 			if (player.supplyTotal() < 400 && player.supplyTotal() - player.supplyUsed() <= getSupplyMargin(player)) {
-				builder = baseService.getMain().getFreeBuilder();
+				Base baseToBuild = null;
+				// figure out where to build
+				double bestRatio = 0;
+				for (Base b : baseService.getBases()) {
+					if (b.isCompleted() && b.getBuilderSize() > 10 && b.getBuildingRatio() > bestRatio) {
+						baseToBuild = b;
+						bestRatio = b.getBuildingRatio();
+					}
+				}
+				if (baseToBuild == null) {
+					baseToBuild = baseService.getMain();
+				}
+				builder = baseToBuild.getFreeBuilder();
 				if (builder != null) {
 					do { // find build location and store it
-						buildLocation = getBuildPosition(game, baseService.getStartPosition().getTilePosition());
+						buildLocation = getBuildPosition(game, baseToBuild.getBaseLocation().getTilePosition());
 					} while (!buildLocation.isValid());
 					builder.build(UnitType.Terran_Supply_Depot, buildLocation);
-					baseService.getMain().increaseBuildings(UnitType.Terran_Supply_Depot);
+					baseToBuild.increaseBuildings(UnitType.Terran_Supply_Depot);
 				}
 			}
 		}
@@ -76,7 +88,7 @@ public class SupplyService implements GameEntity {
 		tp = game.getBuildLocation(UnitType.Terran_Supply_Depot, tp, 6);
 		game.drawCircleMap(tp.toPosition(), 5, Color.White, true);
 		for (Chokepoint ch : r.getChokepoints()) { // should not be closer then 10 tiles to any chokepoint
-			if (ch.getCenter().getDistance(tp.toPosition()) < TilePosition.SIZE_IN_PIXELS * 10) {
+			if (ch.getCenter().getDistance(tp.toPosition()) < TilePosition.SIZE_IN_PIXELS * 8) {
 				return getBuildPosition(game, startPosition);
 			}
 		}
@@ -98,7 +110,7 @@ public class SupplyService implements GameEntity {
 	@Override
 	public void onEntityDestroyed(UnitEntity unit) {
 		// TODO Auto-generated method stub
-		
+
 	}
 
 	public void setEnabled(boolean enabled) {

@@ -1,4 +1,6 @@
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -16,6 +18,7 @@ public class MacroService implements GameEntity {
 	private List<UnitEntity> buildings = new ArrayList<>();
 	private List<TypeWithCount> toBuild = new ArrayList<>();
 	private Map<UnitType, AtomicInteger> counts = new HashMap<>();
+	private UnitType unitToBuild;
 
 	public MacroService(EconomyService economyService) {
 		this.economyService = economyService;
@@ -24,55 +27,72 @@ public class MacroService implements GameEntity {
 	@Override
 	public void onFrame(Game game, Player player) {
 		if (toBuild.isEmpty()) {
-			toBuild.add(new TypeWithCount(UnitType.Terran_Marine, 3, false));
-			toBuild.add(new TypeWithCount(UnitType.Terran_Medic, 1, false));
-			toBuild.add(new TypeWithCount(UnitType.Terran_Firebat, 0, false));
-			toBuild.add(new TypeWithCount(UnitType.Terran_Science_Vessel, 4, true));
+			toBuild.add(new TypeWithCount(UnitType.Terran_Marine, 3, -1));
+			toBuild.add(new TypeWithCount(UnitType.Terran_Medic, 1, -1));
+			toBuild.add(new TypeWithCount(UnitType.Terran_Firebat, 0, -1));
+			toBuild.add(new TypeWithCount(UnitType.Terran_Goliath, 0, -1));
+			toBuild.add(new TypeWithCount(UnitType.Terran_Science_Vessel, 1, 3));
+			toBuild.add(new TypeWithCount(UnitType.Terran_Siege_Tank_Tank_Mode, 1, -1));
 			for (TypeWithCount twc : toBuild) {
 				counts.put(twc.type, new AtomicInteger(0));
 			}
 		}
-		for (UnitEntity entity : buildings) {
 
-			Map<UnitType, AtomicInteger> internalCounts = new HashMap<>();
-			for (Entry<UnitType, AtomicInteger> entry : counts.entrySet()) {
-				internalCounts.put(entry.getKey(), new AtomicInteger(entry.getValue().intValue()));
+		Map<UnitType, AtomicInteger> internalCounts = new HashMap<>();
+		for (Entry<UnitType, AtomicInteger> entry : counts.entrySet()) {
+			internalCounts.put(entry.getKey(), new AtomicInteger(entry.getValue().intValue()));
+		}
+		List<UnitToBuild> nextToBuild = new ArrayList<>();
+		// get what to build
+		// first count what I have currently
+		double multiplier = 0;
+		for (TypeWithCount twc : toBuild) {
+			if (twc.count > 0 && internalCounts.containsKey(twc.type)) {
+				double myMultiplier = internalCounts.get(twc.type).doubleValue() / twc.count;
+				if (myMultiplier > multiplier) {
+					multiplier = myMultiplier;
+				}
 			}
+		}
+		unitToBuild = null;
+		for (TypeWithCount type : toBuild) {
+			if (type.count > 0 && game.canMake(type.type)) {
+				double difference = (type.count * multiplier) - internalCounts.get(type.type).intValue();
+				if (internalCounts.get(type.type).intValue() < type.maxCount || type.maxCount == -1) {
+					nextToBuild.add(new UnitToBuild(type.type, internalCounts.get(type.type).intValue(), (int) difference));
+				}
+			}
+		}
+		// sort 
+		Collections.sort(nextToBuild, new Comparator<UnitToBuild>() {
 
-			if (!entity.getUnit().isTraining() && entity.getUnit().isCompleted()) {
-				// get what to build
-				// first count what I have currently
-				double multiplier = 0;
-				for (TypeWithCount twc : toBuild) {
-					if (twc.count > 0 && internalCounts.containsKey(twc.type)) {
-						double myMultiplier = internalCounts.get(twc.type).doubleValue() / twc.count;
-						if (myMultiplier > multiplier) {
-							multiplier = myMultiplier;
+			@Override
+			public int compare(UnitToBuild o1, UnitToBuild o2) {
+				if (o1.missing == o2.missing)
+					return 0;
+				return o1.missing > o2.missing ? -1 : 1;
+			}
+		});
+		StringBuffer b = new StringBuffer();
+		for (UnitToBuild n : nextToBuild) {
+			b.append(n.type + " c: " + n.count + " m: " + n.missing + "\n");
+		}
+		game.drawTextScreen(30, 100, b.toString());
+
+		while (!nextToBuild.isEmpty()) {
+			unitToBuild = nextToBuild.remove(0).type;
+			//			game.drawTextScreen(30, 90, "Want to build: " + unitToBuild);
+			for (UnitEntity entity : buildings) {
+				if (!entity.getUnit().isTraining() && entity.getUnit().isCompleted()) {
+					// hadle goliath expicitly I don't want them to be build in factory with addons
+					if (entity.getUnit().canTrain(unitToBuild) && !entity.getUnit().isTraining() && economyService.availableMinerals() >= unitToBuild.mineralPrice()
+							&& player.gas() >= unitToBuild.gasPrice()) {
+						if (unitToBuild == UnitType.Terran_Goliath && entity.getUnit().getAddon() != null) {
+							continue;
 						}
-					}
-				}
-				UnitType unitToBuild = null;
-				double maxDifference = 0;
-				for (TypeWithCount type : toBuild) {
-					if (type.count > 0 && game.canMake(type.type)) {
-						double difference = (type.count * multiplier) - internalCounts.get(type.type).intValue();
-						if ((!type.isAbsolute && difference >= maxDifference) || (type.isAbsolute && (internalCounts.get(type.type).intValue() < type.count))) {
-							unitToBuild = type.type;
-							maxDifference = difference;
-						}
-					}
-				}
-				if (unitToBuild == null)
-					unitToBuild = UnitType.Terran_Marine;
-				if (entity.getUnit().canTrain(unitToBuild) && !entity.getUnit().isTraining() && economyService.availableMinerals() >= unitToBuild.mineralPrice()
-						&& player.gas() >= unitToBuild.gasPrice()) {
-					entity.getUnit().train(unitToBuild);
-					internalCounts.get(unitToBuild).incrementAndGet();
-				} else {
-					UnitType marine = UnitType.Terran_Marine;
-					if (economyService.availableMinerals() >= marine.mineralPrice()) {
-						entity.getUnit().train(marine);
+						entity.getUnit().train(unitToBuild);
 						internalCounts.get(unitToBuild).incrementAndGet();
+						return;
 					}
 				}
 			}
@@ -96,8 +116,12 @@ public class MacroService implements GameEntity {
 	@Override
 	public void onEntityDestroyed(UnitEntity entity) {
 		if (!entity.getUnit().getType().isBuilding() && !entity.getUnit().getType().isWorker()) {
-			if (counts.containsKey(entity.getUnit().getType())) {
-				counts.get(entity.getUnit().getType()).decrementAndGet();
+			UnitType type = entity.getUnit().getType();
+			if (type == UnitType.Terran_Siege_Tank_Siege_Mode) {
+				type = UnitType.Terran_Siege_Tank_Tank_Mode;
+			}
+			if (counts.containsKey(type)) {
+				counts.get(type).decrementAndGet();
 			}
 		}
 
@@ -127,15 +151,28 @@ public class MacroService implements GameEntity {
 		}
 	}
 
+	private class UnitToBuild {
+		public UnitType type;
+		public int count;
+		public int missing;
+
+		public UnitToBuild(UnitType type, int count, int missing) {
+			this.type = type;
+			this.count = count;
+			this.missing = missing;
+		}
+
+	}
+
 	private class TypeWithCount {
 		public UnitType type;
 		public int count;
-		public boolean isAbsolute;
+		public int maxCount;
 
-		public TypeWithCount(UnitType type, int count, boolean isAbsolute) {
+		public TypeWithCount(UnitType type, int count, int maxCount) {
 			this.type = type;
 			this.count = count;
-			this.isAbsolute = isAbsolute;
+			this.maxCount = maxCount;
 		}
 	}
 

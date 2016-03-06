@@ -9,13 +9,21 @@ import bwapi.Position;
 
 public class Squad implements GameEntity {
 
+	public enum Behaviour {
+		DEFENSE, ATTACK
+	};
+	
+	private Behaviour behaviour = Behaviour.DEFENSE;
+
 	private List<EntityWithSquad> units = new ArrayList<>();
 	private List<EntityWithSquad> attackUnits = new ArrayList<>();
-	private Position attackPosition = null;
-	private Position averagePosition = null;
-	private Position leadPosition = null;
-	private Position medianPosition = null;
+	private Position attackPosition = new Position(5, 5);
+	private Position averagePosition = new Position(5, 5);
+	private Position leadPosition = new Position(5, 5);
+	private Position medianPosition = new Position(5, 5);
+	private Position lastPosition = new Position(5, 5);
 	private boolean inCombat = false;
+	private boolean wasReady = false;
 	final private int id;
 	private ArmyControlService armyControlService;
 
@@ -29,6 +37,13 @@ public class Squad implements GameEntity {
 			attackUnits.add(fightingUnit);
 		}
 		units.add(fightingUnit);
+		if (units.size() >= 8) {
+			wasReady = true;
+		}
+	}
+
+	public boolean isWinning() {
+		return units.size() > 10;
 	}
 
 	public List<EntityWithSquad> getUnits() {
@@ -70,6 +85,10 @@ public class Squad implements GameEntity {
 			game.drawCircleMap(medianPosition, 5, Color.Yellow, true);
 			game.drawTextMap(medianPosition, "S" + id);
 		}
+		if (lastPosition != null) {
+			game.drawCircleMap(lastPosition, 5, Color.Purple, true);
+			game.drawTextMap(lastPosition, "S" + id);
+		}
 		if (game.getFrameCount() % 4 == 0 && units.size() > 0) {
 			// figure out median location
 			List<Integer> xPositions = new ArrayList<>();
@@ -77,6 +96,7 @@ public class Squad implements GameEntity {
 
 			// find the average location
 			double dist = Double.MAX_VALUE;
+			double maxDist = 0;
 			Point p = new Point(0, 0);
 			for (EntityWithSquad entity : units) {
 				xPositions.add(entity.getUnit().getPoint().getX());
@@ -89,7 +109,10 @@ public class Squad implements GameEntity {
 					dist = distance;
 					leadPosition = entity.getUnit().getPosition();
 				}
-
+				if (distance > maxDist) {
+					maxDist = distance;
+					lastPosition = entity.getUnit().getPosition();
+				}
 			}
 			Collections.sort(xPositions);
 			Collections.sort(yPositions);
@@ -120,7 +143,7 @@ public class Squad implements GameEntity {
 	public void onEntityDestroyed(UnitEntity unit) {
 		if (units.remove(unit)) {
 			attackUnits.remove(unit);
-			if (attackUnits.size() == 0) {
+			if (!this.equals(armyControlService.getCurrentTrainSquad()) && (attackUnits.size() == 0 || (wasReady && units.size() < 8))) { // do not merge if this is train squad
 				System.out.println("all attack units destroyed merging supports");
 				armyControlService.squadDestroyedCallback(this);
 			}
@@ -145,6 +168,18 @@ public class Squad implements GameEntity {
 
 	public Position getMedianPosition() {
 		return medianPosition;
+	}
+
+	public Position getLastPosition() {
+		return lastPosition;
+	}
+
+	public Behaviour getBehaviour() {
+		return behaviour;
+	}
+
+	public void setBehaviour(Behaviour behaviour) {
+		this.behaviour = behaviour;
 	}
 
 }

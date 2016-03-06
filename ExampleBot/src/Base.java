@@ -1,6 +1,7 @@
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Random;
 
 import bwapi.Color;
 import bwapi.Game;
@@ -29,6 +30,7 @@ public class Base implements GameEntity {
 	private Builder rampCleaner = null;
 	private int buildings = 0;
 	private double buildingRatio;
+	private Random r = new Random();
 
 	public Base(BaseLocation baseLocation, Unit commandCenterUnit, EconomyService economyService, BaseService baseService) {
 		super();
@@ -82,6 +84,12 @@ public class Base implements GameEntity {
 	}
 
 	public Builder getFreeBuilder() {
+		// first try random 5 times
+		for (int n = 0; n < 5; n++) {
+			Builder b = builders.get(r.nextInt(builders.size()));
+			if (b.getUnit().exists() && !b.isReserved() && !b.getUnit().isConstructing() && !b.getUnit().isStuck())
+				return b;
+		}
 		for (Builder b : builders) {
 			if (b.getUnit().exists() && !b.isReserved() && !b.getUnit().isConstructing() && !b.getUnit().isStuck()) {
 				return b;
@@ -95,8 +103,7 @@ public class Base implements GameEntity {
 		double area = baseLocation.getRegion().getPolygon().getArea() / AREA_DIVIDER;
 		buildingRatio = area - buildings;
 		game.drawTextMap(baseLocation.getPosition(), "building: " + buildings + "\nregion area: " + area + "\n" + buildingRatio);
-		
-		
+
 		if (economyService.availableMinerals() >= 50 && !cc.isTraining() && notSaturated() && baseService.getBuilders().size() < baseService.getMaxBuilders()) {
 			cc.train(UnitType.Terran_SCV);
 			game.drawCircleMap(cc.getPosition(), 8, Color.Green);
@@ -121,7 +128,7 @@ public class Base implements GameEntity {
 				}
 			}
 		}
-		if (refineryUnit != null && refineryUnit.getType() == UnitType.Terran_Refinery && refineryUnit.isCompleted() && inRefinery.size() < 3 && builders.size() > 19) {
+		if (refineryUnit != null && refineryUnit.getType() == UnitType.Terran_Refinery && refineryUnit.isCompleted() && inRefinery.size() < 3 && builders.size() > 17) {
 			Builder b = getFreeBuilder();
 			b.setReserved(true);
 			inRefinery.add(b);
@@ -149,7 +156,7 @@ public class Base implements GameEntity {
 		builders.remove(unit);
 		inRefinery.remove(unit);
 	}
-	
+
 	public boolean beingConstructed() {
 		return !cc.isCompleted();
 	}
@@ -157,13 +164,13 @@ public class Base implements GameEntity {
 	public double getBuildingRatio() {
 		return buildingRatio;
 	}
-	
+
 	public void increaseBuildings(UnitType type) {
 		double area = baseLocation.getRegion().getPolygon().getArea() / AREA_DIVIDER;
 		buildings += (type.width() * type.height());
 		buildingRatio = area - buildings;
 	}
-	
+
 	public boolean isCompleted() {
 		return cc.isCompleted();
 	}

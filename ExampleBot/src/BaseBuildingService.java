@@ -33,17 +33,15 @@ public class BaseBuildingService implements GameEntity {
 			buildOrder.add(new BuildOrderEntry(10, UnitType.Terran_Barracks, 1, false));
 			buildOrder.add(new BuildOrderEntry(12, UnitType.Terran_Barracks, 2, false));
 			buildOrder.add(new BuildOrderEntry(22, UnitType.Terran_Academy, 1, false));
-			buildOrder.add(new BuildOrderEntry(34, UnitType.Terran_Engineering_Bay, 1, false));
-			buildOrder.add(new BuildOrderEntry(42, UnitType.Terran_Barracks, -7, false)); // if it is negative, it means build one for every X workers
-			buildOrder.add(new BuildOrderEntry(60, UnitType.Terran_Factory, 1, false));
-			buildOrder.add(new BuildOrderEntry(-1, UnitType.Terran_Starport, 1, false));
+			buildOrder.add(new BuildOrderEntry(30, UnitType.Terran_Factory, 1, false));
+			buildOrder.add(new BuildOrderEntry(40, UnitType.Terran_Factory, 2, false));
+			buildOrder.add(new BuildOrderEntry(60, UnitType.Terran_Engineering_Bay, 1, false));
+			buildOrder.add(new BuildOrderEntry(-1, UnitType.Terran_Machine_Shop, 2, false));
+			buildOrder.add(new BuildOrderEntry(80, UnitType.Terran_Starport, 1, false));
 			buildOrder.add(new BuildOrderEntry(-1, UnitType.Terran_Control_Tower, 1, false));
 			buildOrder.add(new BuildOrderEntry(-1, UnitType.Terran_Science_Facility, 1, false));
-			buildOrder.add(new BuildOrderEntry(80, UnitType.Terran_Engineering_Bay, 2, false));
-			buildOrder.add(new BuildOrderEntry(80, UnitType.Terran_Barracks, -6, false));
-			buildOrder.add(new BuildOrderEntry(110, UnitType.Terran_Barracks, -4, false));
 		}
-		if (economyService.getSupply() >= 10 && game.getFrameCount() % 20 == 5) { // don't build any base until 12 supply
+		if (economyService.getSupply() >= 10 && game.getFrameCount() % 40 == 0) { // don't build any base until 12 supply
 			// figure out what I have currently
 			Map<UnitType, AtomicInteger> counts = new HashMap<>();
 			for (BuildOrderEntry entry : buildOrder) {
@@ -68,7 +66,6 @@ public class BaseBuildingService implements GameEntity {
 					if (counts.get(entry.type).intValue() < count) {
 						if (entry.type.isAddon()) {
 							for (UnitEntity entity : buildings) {
-								System.out.println(entity.getUnit().getType());
 								if (entity.getUnit().canBuildAddon(entry.type) && entity.getUnit().getAddon() == null) {
 									entity.getUnit().buildAddon(entry.type);
 								}
@@ -76,6 +73,7 @@ public class BaseBuildingService implements GameEntity {
 						} else {
 							System.out.println("type: " + entry.type + " counts: " + counts.get(entry.type).intValue() + " count: " + count);
 							Base baseToBuild = null;
+							// figure out where to build
 							double bestRatio = 0;
 							for (Base b : baseService.getBases()) {
 								if (b.isCompleted() && b.getBuilderSize() > 10 && 
@@ -115,6 +113,8 @@ public class BaseBuildingService implements GameEntity {
 			return hasAtleastOne(counts, UnitType.Terran_Starport);
 		} else if (type == UnitType.Terran_Science_Facility) {
 			return hasAtleastOne(counts, UnitType.Terran_Starport);
+		} else if (type == UnitType.Terran_Machine_Shop) {
+			return hasAtleastOne(counts, UnitType.Terran_Factory);
 		} else if (type == UnitType.Terran_Missile_Turret) {
 			return hasAtleastOne(counts, UnitType.Terran_Engineering_Bay);
 		}
@@ -131,7 +131,7 @@ public class BaseBuildingService implements GameEntity {
 
 	private TilePosition getBuildPosition(Base base, UnitType type, Game game, Player player) {
 		TilePosition pos = null;
-		if (player.allUnitCount(type) > 7 || type == UnitType.Terran_Academy || type == UnitType.Terran_Engineering_Bay || type == UnitType.Terran_Factory || type == UnitType.Terran_Starport
+		if (player.allUnitCount(type) > 5 || type == UnitType.Terran_Academy || type == UnitType.Terran_Engineering_Bay || type == UnitType.Terran_Starport
 				|| type == UnitType.Terran_Science_Facility) {
 			pos = getBuildPosition(type, game, base.getBaseLocation().getTilePosition());
 		} else {
@@ -149,7 +149,7 @@ public class BaseBuildingService implements GameEntity {
 		if (unit.getUnit().getType() == UnitType.Terran_Barracks || unit.getUnit().getType() == UnitType.Terran_Factory
 				|| unit.getUnit().getType() == UnitType.Terran_Academy || unit.getUnit().getType() == UnitType.Terran_Science_Facility
 				|| unit.getUnit().getType() == UnitType.Terran_Starport || unit.getUnit().getType() == UnitType.Terran_Engineering_Bay
-				|| unit.getUnit().getType() == UnitType.Terran_Control_Tower) {
+				|| unit.getUnit().getType() == UnitType.Terran_Machine_Shop || unit.getUnit().getType() == UnitType.Terran_Control_Tower) {
 			buildings.add(unit);
 			Builder builderToRemove = null;
 			for (Builder b : orderedBuildings.keySet()) {
@@ -192,6 +192,16 @@ public class BaseBuildingService implements GameEntity {
 				boe.count = count;
 			}
 		}
+	}
+	
+	/**
+	 * Adds building to build order
+	 * @param type
+	 * @param supply
+	 * @param count
+	 */
+	public void addBuild(UnitType type, int supply, int count) {
+		buildOrder.add(new BuildOrderEntry(supply, type, count, false));
 	}
 
 	private class BuildOrderEntry {
