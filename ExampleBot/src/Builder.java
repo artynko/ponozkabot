@@ -29,7 +29,7 @@ public class Builder extends AbstractUnitEntity {
 		if (unit.getPosition().getDistance(base.getBaseLocation().getPosition()) < 120) {
 			if (unit.getLastCommand().getUnitCommandType() != UnitCommandType.Attack_Move) {
 				for (Unit u : game.getUnitsInRadius(unit.getPosition(), 64)) {
-					if (u.getPlayer().equals(game.enemy())) {
+					if (!u.isFlying() && u.getPlayer().equals(game.enemy())) {
 						System.out.println("Enemey close attacking with builders");
 						unit.attack(unit.getPosition());
 						return;
